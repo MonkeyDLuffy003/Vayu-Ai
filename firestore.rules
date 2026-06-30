@@ -1,0 +1,43 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can read their own profile but never write it directly —
+    // tier/quota changes only happen server-side (Cloud Functions / Admin SDK).
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+
+      match /usage_logs/{logId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+    }
+
+    // Conversations and messages are read-only from the client.
+    // All creation/mutation goes through the /api/chat Cloud Function,
+    // which enforces ownership and rate limits before writing.
+    match /conversations/{conversationId} {
+      allow read: if request.auth != null &&
+                     resource.data.userId == request.auth.uid;
+      allow write: if false;
+
+      match /messages/{messageId} {
+        allow read: if request.auth != null &&
+                       get(/databases/$(database)/documents/conversations/$(conversationId)).data.userId == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    // Never client-accessible: holds raw provider API keys.
+    match /api_key_pool/{keyId} {
+      allow read, write: if false;
+    }
+
+    match /subscription_tiers/{tierId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+  }
+}
