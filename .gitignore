@@ -1,0 +1,23 @@
+# Flutter
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/build/
+mobile/.packages
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/ios/Pods/
+mobile/lib/firebase_options.dart
+
+# Node / Functions
+functions/node_modules/
+functions/lib/
+
+# Secrets
+*.env
+.env*
+google-services.json
+GoogleService-Info.plist
+
+# OS
+.DS_Store
