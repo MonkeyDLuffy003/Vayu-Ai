@@ -1,0 +1,94 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ======================================================== -->
+    <!-- MICROPHONE / VOICE                                      -->
+    <!-- ======================================================== -->
+
+    <uses-permission
+        android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- ======================================================== -->
+    <!-- NOTIFICATIONS                                            -->
+    <!-- Android 13+                                             -->
+    <!-- ======================================================== -->
+
+    <uses-permission
+        android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- ======================================================== -->
+    <!-- ALARMS                                                    -->
+    <!-- ======================================================== -->
+
+    <uses-permission
+        android:name="android.permission.WAKE_LOCK" />
+
+    <uses-permission
+        android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- ======================================================== -->
+    <!-- DEVICE REBOOT                                            -->
+    <!-- Restore Vayu alarms after reboot                        -->
+    <!-- ======================================================== -->
+
+    <uses-permission
+        android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- ======================================================== -->
+    <!-- FOREGROUND SERVICE                                       -->
+    <!-- Used later for approved background operations           -->
+    <!-- ======================================================== -->
+
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <uses-permission
+        android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+
+    <!-- ======================================================== -->
+    <!-- APPLICATION                                              -->
+    <!-- ======================================================== -->
+
+    <application
+        android:label="Vayu AI"
+        android:name="${applicationName}"
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true">
+
+        <!-- ==================================================== -->
+        <!-- MAIN ACTIVITY                                        -->
+        <!-- ==================================================== -->
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/LaunchTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize">
+
+            <meta-data
+                android:name="io.flutter.embedding.android.NormalTheme"
+                android:resource="@style/NormalTheme" />
+
+            <intent-filter>
+                <action
+                    android:name="android.intent.action.MAIN" />
+
+                <category
+                    android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <!-- ==================================================== -->
+        <!-- FLUTTER ENGINE                                      -->
+        <!-- ==================================================== -->
+
+        <meta-data
+            android:name="flutterEmbedding"
+            android:value="2" />
+
+    </application>
+
+</manifest>
