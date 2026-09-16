@@ -1,21 +1,27 @@
 package org.kakarot003.vayu_ai
 
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 
 class AlarmReceiver : BroadcastReceiver() {
 
     // ============================================================
-    // RECEIVE ALARM
+    // ALARM RECEIVED
     // ============================================================
 
     override fun onReceive(
         context: Context,
         intent: Intent
     ) {
+
         val alarmId =
             intent.getIntExtra(
                 EXTRA_ALARM_ID,
@@ -27,11 +33,60 @@ class AlarmReceiver : BroadcastReceiver() {
                 EXTRA_ALARM_LABEL
             ) ?: "Your Vayu alarm is ringing."
 
+        // ========================================================
+        // CREATE CHANNEL
+        // ========================================================
+
+        createNotificationChannel(context)
+
+        // ========================================================
+        // SHOW ALARM
+        // ========================================================
+
         showNotification(
             context = context,
             alarmId = alarmId,
             label = label
         )
+    }
+
+    // ============================================================
+    // CREATE NOTIFICATION CHANNEL
+    // ============================================================
+
+    private fun createNotificationChannel(
+        context: Context
+    ) {
+
+        if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.O
+        ) {
+
+            val channel =
+                NotificationChannel(
+                    CHANNEL_ID,
+                    "Vayu Alarms",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+
+                    description =
+                        "Alarm notifications from Vayu AI"
+
+                    enableVibration(true)
+
+                    setShowBadge(true)
+                }
+
+            val notificationManager =
+                context.getSystemService(
+                    Context.NOTIFICATION_SERVICE
+                ) as NotificationManager
+
+            notificationManager.createNotificationChannel(
+                channel
+            )
+        }
     }
 
     // ============================================================
@@ -43,6 +98,22 @@ class AlarmReceiver : BroadcastReceiver() {
         alarmId: Int,
         label: String
     ) {
+
+        // Android 13+ requires notification permission.
+        if (
+            Build.VERSION.SDK_INT >=
+            Build.VERSION_CODES.TIRAMISU
+        ) {
+
+            if (
+                context.checkSelfPermission(
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                return
+            }
+        }
+
         val notification =
             NotificationCompat.Builder(
                 context,
@@ -63,11 +134,17 @@ class AlarmReceiver : BroadcastReceiver() {
                 .setCategory(
                     NotificationCompat.CATEGORY_ALARM
                 )
-                .setAutoCancel(
-                    true
-                )
-                .setOngoing(
-                    false
+                .setAutoCancel(true)
+                .setOngoing(false)
+                .setVibrate(
+                    longArrayOf(
+                        0,
+                        500,
+                        300,
+                        500,
+                        300,
+                        800
+                    )
                 )
                 .build()
 
@@ -79,21 +156,17 @@ class AlarmReceiver : BroadcastReceiver() {
             )
     }
 
-    companion object {
+    // ============================================================
+    // CONSTANTS
+    // ============================================================
 
-        // ========================================================
-        // INTENT DATA
-        // ========================================================
+    companion object {
 
         const val EXTRA_ALARM_ID =
             "vayu_alarm_id"
 
         const val EXTRA_ALARM_LABEL =
             "vayu_alarm_label"
-
-        // ========================================================
-        // NOTIFICATION CHANNEL
-        // ========================================================
 
         const val CHANNEL_ID =
             "vayu_alarms"
