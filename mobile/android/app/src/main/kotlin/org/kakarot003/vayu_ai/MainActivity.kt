@@ -17,7 +17,15 @@ class MainActivity : FlutterActivity() {
     // METHOD CHANNEL
     // ============================================================
 
-    private val CHANNEL = "vayu_ai/alarm_manager"
+    private val CHANNEL =
+        "vayu_ai/alarm_manager"
+
+    // ============================================================
+    // NATIVE ALARM STORAGE
+    // ============================================================
+
+    private lateinit var alarmStorage:
+        NativeAlarmStorage
 
     // ============================================================
     // FLUTTER → ANDROID BRIDGE
@@ -26,7 +34,13 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(
         @NonNull flutterEngine: FlutterEngine
     ) {
-        super.configureFlutterEngine(flutterEngine)
+
+        super.configureFlutterEngine(
+            flutterEngine
+        )
+
+        alarmStorage =
+            NativeAlarmStorage(this)
 
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,
@@ -40,6 +54,7 @@ class MainActivity : FlutterActivity() {
                 // ==================================================
 
                 "canScheduleExactAlarms" -> {
+
                     result.success(
                         canScheduleExactAlarms()
                     )
@@ -50,6 +65,7 @@ class MainActivity : FlutterActivity() {
                 // ==================================================
 
                 "openExactAlarmSettings" -> {
+
                     result.success(
                         openExactAlarmSettings()
                     )
@@ -62,24 +78,32 @@ class MainActivity : FlutterActivity() {
                 "scheduleAlarm" -> {
 
                     val alarmId =
-                        call.argument<String>("alarmId")
+                        call.argument<String>(
+                            "alarmId"
+                        )
 
                     val triggerAtMillis =
-                        call.argument<Long>("triggerAtMillis")
+                        call.argument<Long>(
+                            "triggerAtMillis"
+                        )
 
                     val label =
-                        call.argument<String>("label")
+                        call.argument<String>(
+                            "label"
+                        )
                             ?: "Your Vayu alarm is ringing."
 
                     if (
                         alarmId == null ||
                         triggerAtMillis == null
                     ) {
+
                         result.error(
                             "INVALID_ARGUMENTS",
                             "alarmId and triggerAtMillis are required.",
                             null
                         )
+
                         return@setMethodCallHandler
                     }
 
@@ -100,14 +124,18 @@ class MainActivity : FlutterActivity() {
                 "cancelAlarm" -> {
 
                     val alarmId =
-                        call.argument<String>("alarmId")
+                        call.argument<String>(
+                            "alarmId"
+                        )
 
                     if (alarmId == null) {
+
                         result.error(
                             "INVALID_ARGUMENTS",
                             "alarmId is required.",
                             null
                         )
+
                         return@setMethodCallHandler
                     }
 
@@ -121,6 +149,7 @@ class MainActivity : FlutterActivity() {
                 // ==================================================
 
                 "openAppSettings" -> {
+
                     result.success(
                         openAppSettings()
                     )
@@ -141,9 +170,13 @@ class MainActivity : FlutterActivity() {
     // EXACT ALARM PERMISSION
     // ============================================================
 
-    private fun canScheduleExactAlarms(): Boolean {
+    private fun canScheduleExactAlarms():
+        Boolean {
 
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        if (
+            Build.VERSION.SDK_INT <
+            Build.VERSION_CODES.S
+        ) {
             return true
         }
 
@@ -152,22 +185,28 @@ class MainActivity : FlutterActivity() {
                 Context.ALARM_SERVICE
             ) as AlarmManager
 
-        return alarmManager.canScheduleExactAlarms()
+        return alarmManager
+            .canScheduleExactAlarms()
     }
 
     // ============================================================
     // OPEN EXACT ALARM SETTINGS
     // ============================================================
 
-    private fun openExactAlarmSettings(): Boolean {
+    private fun openExactAlarmSettings():
+        Boolean {
 
         return try {
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (
+                Build.VERSION.SDK_INT >=
+                Build.VERSION_CODES.S
+            ) {
 
                 val intent =
                     Intent(
-                        Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
+                        Settings
+                            .ACTION_REQUEST_SCHEDULE_EXACT_ALARM
                     )
 
                 intent.data =
@@ -181,7 +220,8 @@ class MainActivity : FlutterActivity() {
 
                 val intent =
                     Intent(
-                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                        Settings
+                            .ACTION_APPLICATION_DETAILS_SETTINGS
                     )
 
                 intent.data =
@@ -194,7 +234,10 @@ class MainActivity : FlutterActivity() {
 
             true
 
-        } catch (e: Exception) {
+        } catch (
+            exception: Exception
+        ) {
+
             false
         }
     }
@@ -219,10 +262,22 @@ class MainActivity : FlutterActivity() {
                 return false
             }
 
+            if (
+                triggerAtMillis <=
+                System.currentTimeMillis()
+            ) {
+                return false
+            }
+
             val alarmManager =
                 getSystemService(
                     Context.ALARM_SERVICE
                 ) as AlarmManager
+
+            val notificationId =
+                stableNotificationId(
+                    alarmId
+                )
 
             val intent =
                 Intent(
@@ -232,7 +287,7 @@ class MainActivity : FlutterActivity() {
 
                     putExtra(
                         AlarmReceiver.EXTRA_ALARM_ID,
-                        stableNotificationId(alarmId)
+                        notificationId
                     )
 
                     putExtra(
@@ -244,11 +299,15 @@ class MainActivity : FlutterActivity() {
             val pendingIntent =
                 PendingIntent.getBroadcast(
                     this,
-                    stableNotificationId(alarmId),
+                    notificationId,
                     intent,
                     PendingIntent.FLAG_UPDATE_CURRENT or
                             PendingIntent.FLAG_IMMUTABLE
                 )
+
+            // ====================================================
+            // ANDROID EXACT ALARM
+            // ====================================================
 
             alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP,
@@ -256,11 +315,28 @@ class MainActivity : FlutterActivity() {
                 pendingIntent
             )
 
+            // ====================================================
+            // SAVE NATIVE BACKUP
+            // ====================================================
+
+            alarmStorage.saveAlarm(
+                alarmId = alarmId,
+                triggerAtMillis = triggerAtMillis,
+                label = label
+            )
+
             true
 
-        } catch (e: SecurityException) {
+        } catch (
+            exception: SecurityException
+        ) {
+
             false
-        } catch (e: Exception) {
+
+        } catch (
+            exception: Exception
+        ) {
+
             false
         }
     }
@@ -280,6 +356,11 @@ class MainActivity : FlutterActivity() {
                     Context.ALARM_SERVICE
                 ) as AlarmManager
 
+            val notificationId =
+                stableNotificationId(
+                    alarmId
+                )
+
             val intent =
                 Intent(
                     this,
@@ -289,7 +370,7 @@ class MainActivity : FlutterActivity() {
             val pendingIntent =
                 PendingIntent.getBroadcast(
                     this,
-                    stableNotificationId(alarmId),
+                    notificationId,
                     intent,
                     PendingIntent.FLAG_UPDATE_CURRENT or
                             PendingIntent.FLAG_IMMUTABLE
@@ -301,9 +382,20 @@ class MainActivity : FlutterActivity() {
 
             pendingIntent.cancel()
 
+            // ====================================================
+            // REMOVE NATIVE BACKUP
+            // ====================================================
+
+            alarmStorage.deleteAlarm(
+                alarmId
+            )
+
             true
 
-        } catch (e: Exception) {
+        } catch (
+            exception: Exception
+        ) {
+
             false
         }
     }
@@ -312,13 +404,15 @@ class MainActivity : FlutterActivity() {
     // OPEN APP SETTINGS
     // ============================================================
 
-    private fun openAppSettings(): Boolean {
+    private fun openAppSettings():
+        Boolean {
 
         return try {
 
             val intent =
                 Intent(
-                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+                    Settings
+                        .ACTION_APPLICATION_DETAILS_SETTINGS
                 )
 
             intent.data =
@@ -330,7 +424,10 @@ class MainActivity : FlutterActivity() {
 
             true
 
-        } catch (e: Exception) {
+        } catch (
+            exception: Exception
+        ) {
+
             false
         }
     }
@@ -346,7 +443,10 @@ class MainActivity : FlutterActivity() {
         var hash = 0
 
         for (character in value) {
-            hash = 31 * hash + character.code
+
+            hash =
+                31 * hash +
+                        character.code
         }
 
         return hash and 0x7fffffff
