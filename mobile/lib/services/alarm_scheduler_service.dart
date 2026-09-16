@@ -1,20 +1,56 @@
+import 'alarm_manager_service.dart';
 import 'alarm_service.dart';
 import 'notification_controller.dart';
 
 class AlarmSchedulerService {
-  final NotificationController _notificationController;
+  // ============================================================
+  // DEPENDENCIES
+  // ============================================================
+
+  final AlarmManagerService alarmManagerService;
+  final NotificationController notificationController;
+  final AlarmService alarmService;
 
   AlarmSchedulerService({
-    required NotificationController notificationController,
-  }) : _notificationController =
-            notificationController;
+    required this.alarmManagerService,
+    required this.notificationController,
+    required this.alarmService,
+  });
 
   // ============================================================
   // INITIALIZE
   // ============================================================
 
   Future<void> initialize() async {
-    await _notificationController.initialize();
+    // The Android side restores alarms after reboot.
+    //
+    // Here we only make sure the notification system is ready.
+    await notificationController.initialize();
+  }
+
+  // ============================================================
+  // CHECK EXACT ALARM ACCESS
+  // ============================================================
+
+  Future<bool> canScheduleExactAlarms() async {
+    return alarmManagerService
+        .canScheduleExactAlarms();
+  }
+
+  // ============================================================
+  // REQUEST EXACT ALARM ACCESS
+  // ============================================================
+
+  Future<bool> requestExactAlarmAccess() async {
+    final available =
+        await canScheduleExactAlarms();
+
+    if (available) {
+      return true;
+    }
+
+    return alarmManagerService
+        .openExactAlarmSettings();
   }
 
   // ============================================================
@@ -24,50 +60,75 @@ class AlarmSchedulerService {
   Future<bool> scheduleAlarm(
     VayuAlarm alarm,
   ) async {
+
     if (!alarm.enabled) {
       return false;
     }
 
-    if (alarm.scheduledTime.isBefore(
-      DateTime.now(),
-    )) {
+    if (
+      alarm.scheduledTime
+          .isBefore(DateTime.now())
+    ) {
       return false;
     }
 
     // ==========================================================
-    // ANDROID SCHEDULING HOOK
+    // CHECK EXACT ALARM ACCESS
     // ==========================================================
-    //
-    // The actual Android alarm scheduling implementation will
-    // be connected here.
-    //
-    // It will eventually:
-    //
-    // 1. Register the alarm with Android.
-    // 2. Wake the application when required.
-    // 3. Trigger Vayu's notification.
-    // 4. Handle reboot restoration.
-    //
-    // We intentionally do not pretend that simply saving an
-    // alarm schedules an Android system alarm.
 
-    return true;
+    final exactAlarmAvailable =
+        await canScheduleExactAlarms();
+
+    if (!exactAlarmAvailable) {
+      return false;
+    }
+
+    // ==========================================================
+    // SCHEDULE NATIVE ANDROID ALARM
+    // ==========================================================
+
+    final success =
+        await alarmManagerService.scheduleAlarm(
+      alarmId: alarm.id,
+      scheduledTime: alarm.scheduledTime,
+      label: alarm.label ??
+          'Your Vayu alarm is ringing.',
+    );
+
+    // ==========================================================
+    // SHOW OPTIONAL SCHEDULE CONFIRMATION
+    // ==========================================================
+
+    if (success) {
+      await notificationController.showAlarmScheduled(
+        alarm,
+      );
+    }
+
+    return success;
   }
 
   // ============================================================
   // CANCEL ALARM
   // ============================================================
 
-  Future<void> cancelAlarm(
-    VayuAlarm alarm,
+  Future<bool> cancelAlarm(
+    String alarmId,
   ) async {
-    await _notificationController
-        .cancelAlarmNotification(
-      alarm.id.hashCode,
+
+    final success =
+        await alarmManagerService.cancelAlarm(
+      alarmId: alarmId,
     );
 
-    // Actual Android alarm cancellation will be
-    // connected here.
+    if (success) {
+      await notificationController
+          .cancelAlarmNotification(
+        alarmId,
+      );
+    }
+
+    return success;
   }
 
   // ============================================================
@@ -77,30 +138,45 @@ class AlarmSchedulerService {
   Future<bool> rescheduleAlarm(
     VayuAlarm alarm,
   ) async {
-    await cancelAlarm(
-      alarm,
-    );
 
-    return await scheduleAlarm(
-      alarm,
+    if (!alarm.enabled) {
+      await cancelAlarm(alarm.id);
+      return false;
+    }
+
+    if (
+      alarm.scheduledTime
+          .isBefore(DateTime.now())
+    ) {
+      return false;
+    }
+
+    final exactAlarmAvailable =
+        await canScheduleExactAlarms();
+
+    if (!exactAlarmAvailable) {
+      return false;
+    }
+
+    return alarmManagerService
+        .rescheduleAlarm(
+      alarmId: alarm.id,
+      scheduledTime: alarm.scheduledTime,
+      label: alarm.label ??
+          'Your Vayu alarm is ringing.',
     );
   }
 
   // ============================================================
-  // TRIGGER ALARM NOTIFICATION
+  // TRIGGER ALARM
   // ============================================================
 
   Future<void> triggerAlarm(
     VayuAlarm alarm,
   ) async {
-    if (!alarm.enabled) {
-      return;
-    }
 
-    await _notificationController
-        .showAlarm(
-      alarmId: alarm.id.hashCode,
-      label: alarm.label,
+    await notificationController.showAlarm(
+      alarm,
     );
   }
 
@@ -109,10 +185,24 @@ class AlarmSchedulerService {
   // ============================================================
 
   Future<void> cancelAll() async {
-    await _notificationController
-        .cancelAllNotifications();
 
-    // Actual Android scheduled alarms will also
-    // be cancelled here once the scheduler is connected.
+    final alarms =
+        await alarmService.getAlarms();
+
+    for (final alarm in alarms) {
+      await cancelAlarm(alarm.id);
+    }
+
+    await notificationController
+        .cancelAllNotifications();
+  }
+
+  // ============================================================
+  // OPEN APP SETTINGS
+  // ============================================================
+
+  Future<bool> openAppSettings() {
+    return alarmManagerService
+        .openAppSettings();
   }
 }
