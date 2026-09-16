@@ -238,6 +238,28 @@ class AlarmService {
           'next alarm',
         );
   }
+    // ============================================================
+  // RESTORE STORED ALARM
+  // ============================================================
+
+  void restoreAlarm(
+    VayuAlarm alarm,
+  ) {
+    if (alarm.scheduledTime.isBefore(
+      DateTime.now(),
+    )) {
+      return;
+    }
+
+    final exists =
+        _alarms.any(
+      (item) => item.id == alarm.id,
+    );
+
+    if (!exists) {
+      _alarms.add(alarm);
+    }
+  }
 
   // ============================================================
   // ID GENERATOR
