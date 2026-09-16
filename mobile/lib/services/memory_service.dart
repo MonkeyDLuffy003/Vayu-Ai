@@ -24,7 +24,9 @@ class VayuMemory {
     };
   }
 
-  factory VayuMemory.fromJson(Map<String, dynamic> json) {
+  factory VayuMemory.fromJson(
+    Map<String, dynamic> json,
+  ) {
     return VayuMemory(
       key: json['key'] as String? ?? '',
       value: json['value'] as String? ?? '',
@@ -43,21 +45,31 @@ class VayuMemory {
 class MemoryService {
   final LocalStorageService _storage;
 
-  static const String _memoryKey = 'vayu_memories';
+  static const String _memoryKey =
+      'vayu_memories';
 
   MemoryService(this._storage);
 
-  /// Load all saved memories.
+  // ============================================================
+  // LOAD MEMORIES
+  // ============================================================
+
   Future<List<VayuMemory>> getMemories() async {
-    final preferences = await _storage.preferences;
-    final raw = preferences.getString(_memoryKey);
+    final preferences =
+        _storage.preferences;
+
+    final raw =
+        preferences.getString(
+      _memoryKey,
+    );
 
     if (raw == null || raw.isEmpty) {
       return [];
     }
 
     try {
-      final decoded = jsonDecode(raw);
+      final decoded =
+          jsonDecode(raw);
 
       if (decoded is! List) {
         return [];
@@ -66,8 +78,11 @@ class MemoryService {
       return decoded
           .whereType<Map>()
           .map(
-            (item) => VayuMemory.fromJson(
-              Map<String, dynamic>.from(item),
+            (item) =>
+                VayuMemory.fromJson(
+              Map<String, dynamic>.from(
+                item,
+              ),
             ),
           )
           .toList();
@@ -76,26 +91,40 @@ class MemoryService {
     }
   }
 
-  /// Save or update a memory.
+  // ============================================================
+  // SAVE / UPDATE MEMORY
+  // ============================================================
+
   Future<void> saveMemory(
     String key,
     String value,
   ) async {
-    final cleanKey = key.trim();
-    final cleanValue = value.trim();
+    final cleanKey =
+        key.trim();
 
-    if (cleanKey.isEmpty || cleanValue.isEmpty) {
+    final cleanValue =
+        value.trim();
+
+    if (cleanKey.isEmpty ||
+        cleanValue.isEmpty) {
       return;
     }
 
-    final memories = await getMemories();
-    final now = DateTime.now();
+    final memories =
+        await getMemories();
 
-    final index = memories.indexWhere(
-      (memory) => memory.key.toLowerCase() == cleanKey.toLowerCase(),
+    final now =
+        DateTime.now();
+
+    final index =
+        memories.indexWhere(
+      (memory) =>
+          memory.key.toLowerCase() ==
+          cleanKey.toLowerCase(),
     );
 
-    final memory = VayuMemory(
+    final memory =
+        VayuMemory(
       key: cleanKey,
       value: cleanValue,
       createdAt: index >= 0
@@ -105,69 +134,119 @@ class MemoryService {
     );
 
     if (index >= 0) {
-      memories[index] = memory;
+      memories[index] =
+          memory;
     } else {
       memories.add(memory);
     }
 
-    await _saveMemories(memories);
+    await _saveMemories(
+      memories,
+    );
   }
 
-  /// Find a memory by key.
-  Future<VayuMemory?> getMemory(String key) async {
-    final memories = await getMemories();
+  // ============================================================
+  // GET ONE MEMORY
+  // ============================================================
+
+  Future<VayuMemory?> getMemory(
+    String key,
+  ) async {
+    final memories =
+        await getMemories();
 
     try {
       return memories.firstWhere(
         (memory) =>
-            memory.key.toLowerCase() == key.trim().toLowerCase(),
+            memory.key.toLowerCase() ==
+            key.trim().toLowerCase(),
       );
     } catch (_) {
       return null;
     }
   }
 
-  /// Delete one memory.
-  Future<void> deleteMemory(String key) async {
-    final memories = await getMemories();
+  // ============================================================
+  // DELETE ONE MEMORY
+  // ============================================================
+
+  Future<void> deleteMemory(
+    String key,
+  ) async {
+    final memories =
+        await getMemories();
 
     memories.removeWhere(
       (memory) =>
-          memory.key.toLowerCase() == key.trim().toLowerCase(),
+          memory.key.toLowerCase() ==
+          key.trim().toLowerCase(),
     );
 
-    await _saveMemories(memories);
+    await _saveMemories(
+      memories,
+    );
   }
 
-  /// Clear every local memory.
+  // ============================================================
+  // CLEAR ALL MEMORIES
+  // ============================================================
+
   Future<void> clearMemories() async {
-    final preferences = await _storage.preferences;
-    await preferences.remove(_memoryKey);
+    final preferences =
+        _storage.preferences;
+
+    await preferences.remove(
+      _memoryKey,
+    );
   }
 
-  /// Search memories using text.
-  Future<List<VayuMemory>> search(String query) async {
-    final cleanQuery = query.trim().toLowerCase();
+  // ============================================================
+  // SEARCH MEMORIES
+  // ============================================================
+
+  Future<List<VayuMemory>> search(
+    String query,
+  ) async {
+    final cleanQuery =
+        query.trim().toLowerCase();
 
     if (cleanQuery.isEmpty) {
       return getMemories();
     }
 
-    final memories = await getMemories();
+    final memories =
+        await getMemories();
 
-    return memories.where((memory) {
-      return memory.key.toLowerCase().contains(cleanQuery) ||
-          memory.value.toLowerCase().contains(cleanQuery);
-    }).toList();
+    return memories.where(
+      (memory) {
+        return memory.key
+                .toLowerCase()
+                .contains(cleanQuery) ||
+            memory.value
+                .toLowerCase()
+                .contains(cleanQuery);
+      },
+    ).toList();
   }
+
+  // ============================================================
+  // INTERNAL STORAGE
+  // ============================================================
 
   Future<void> _saveMemories(
     List<VayuMemory> memories,
   ) async {
-    final preferences = await _storage.preferences;
+    final preferences =
+        _storage.preferences;
 
-    final encoded = jsonEncode(
-      memories.map((memory) => memory.toJson()).toList(),
+    final encoded =
+        jsonEncode(
+      memories
+          .map(
+            (memory) =>
+                memory.toJson(),
+          )
+          .toList(),
     );
 
     await preferences.setString(
