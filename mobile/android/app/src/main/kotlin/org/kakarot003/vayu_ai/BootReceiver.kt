@@ -36,15 +36,9 @@ class BootReceiver : BroadcastReceiver() {
         context: Context
     ) {
 
-        /*
-         * Alarm persistence will be connected in the next step.
-         *
-         * The receiver is intentionally kept lightweight.
-         * Android may execute BroadcastReceiver only for a
-         * limited amount of time after boot.
-         *
-         * Do not perform heavy Flutter initialization here.
-         */
+        // ========================================================
+        // CHECK EXACT ALARM ACCESS
+        // ========================================================
 
         if (
             Build.VERSION.SDK_INT >=
@@ -64,12 +58,130 @@ class BootReceiver : BroadcastReceiver() {
         }
 
         // ========================================================
-        // ALARM RESTORATION HOOK
+        // LOAD NATIVE ALARMS
         // ========================================================
-        //
-        // The actual stored-alarm restoration will be connected
-        // after native alarm persistence is added.
-        //
+
+        val storage =
+            NativeAlarmStorage(context)
+
+        val alarms =
+            storage.getAlarms()
+
+        val currentTime =
+            System.currentTimeMillis()
+
         // ========================================================
+        // RESTORE FUTURE ALARMS
+        // ========================================================
+
+        alarms.forEach { alarm ->
+
+            if (
+                alarm.triggerAtMillis <=
+                currentTime
+            ) {
+                return@forEach
+            }
+
+            scheduleAlarm(
+                context = context,
+                alarm = alarm
+            )
+        }
+
+        // ========================================================
+        // REMOVE EXPIRED ALARMS
+        // ========================================================
+
+        storage.removeExpiredAlarms()
+    }
+
+    // ============================================================
+    // SCHEDULE RESTORED ALARM
+    // ============================================================
+
+    private fun scheduleAlarm(
+        context: Context,
+        alarm: NativeAlarm
+    ) {
+
+        try {
+
+            val alarmManager =
+                context.getSystemService(
+                    Context.ALARM_SERVICE
+                ) as AlarmManager
+
+            val notificationId =
+                stableNotificationId(
+                    alarm.alarmId
+                )
+
+            val intent =
+                Intent(
+                    context,
+                    AlarmReceiver::class.java
+                ).apply {
+
+                    putExtra(
+                        AlarmReceiver.EXTRA_ALARM_ID,
+                        notificationId
+                    )
+
+                    putExtra(
+                        AlarmReceiver.EXTRA_ALARM_LABEL,
+                        alarm.label
+                    )
+                }
+
+            val pendingIntent =
+                PendingIntent.getBroadcast(
+                    context,
+                    notificationId,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or
+                            PendingIntent.FLAG_IMMUTABLE
+                )
+
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                alarm.triggerAtMillis,
+                pendingIntent
+            )
+
+        } catch (
+            exception: SecurityException
+        ) {
+
+            // Exact alarm access was removed.
+            return
+
+        } catch (
+            exception: Exception
+        ) {
+
+            // Prevent boot receiver from crashing Android.
+            return
+        }
+    }
+
+    // ============================================================
+    // STABLE INTEGER ID
+    // ============================================================
+
+    private fun stableNotificationId(
+        value: String
+    ): Int {
+
+        var hash = 0
+
+        for (character in value) {
+
+            hash =
+                31 * hash +
+                        character.code
+        }
+
+        return hash and 0x7fffffff
     }
 }
